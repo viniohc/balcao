@@ -7,6 +7,7 @@ const paths: Record<string, string> = {
   history: 'M3 11a9 9 0 1 1 2 7M3 4v7h7m2-4v5l3 2',
   box: 'm12 3 9 5-9 5-9-5 9-5Zm-9 5v9l9 5 9-5V8m-9 5v9M7.5 5.5l9 5',
   search: 'M20 20l-5-5m2-5a7 7 0 1 1-14 0 7 7 0 0 1 14 0Z',
+  chevron: 'm6 9 6 6 6-6',
   plus: 'M12 5v14M5 12h14', minus: 'M5 12h14',
   check: 'm5 12 4 4L19 6', arrow: 'M4 12h16m-6-6 6 6-6 6',
   info: 'M12 11v6m0-10h.01M22 12A10 10 0 1 1 2 12a10 10 0 0 1 20 0Z',

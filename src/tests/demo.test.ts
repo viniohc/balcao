@@ -41,7 +41,7 @@ describe('demonstração local de portfólio', () => {
     expect(loginDemo(DEMO_CREDENTIALS.email, DEMO_CREDENTIALS.password)).toBe(true)
     expect(hasDemoSession()).toBe(true)
     const snapshot = await readDemoSnapshot('demo-feira-praca')
-    expect(snapshot.fairs).toHaveLength(2)
+    expect(snapshot.fairs).toHaveLength(4)
     expect(snapshot.products.map((item) => item.name)).toContain('Caldo de abóbora')
     expect(snapshot.sales.some((item) => item.commandNumber === 'D-12')).toBe(true)
     expect(snapshot.settings?.storeName).toBe('Barraca da Praça')
@@ -71,9 +71,10 @@ describe('demonstração local de portfólio', () => {
     await createDemoProduct('demo-feira-praca', { name: 'Item temporário', price: 1, category: 'Outros' })
     await resetDemoDatabase()
     const snapshot = await readDemoSnapshot('demo-feira-praca')
-    expect(snapshot.fairs).toHaveLength(2)
-    expect(snapshot.products.map((item) => item.name)).toEqual(['Caldo de abóbora', 'Limonada'])
-    expect(snapshot.sales).toHaveLength(2)
+    expect(snapshot.fairs).toHaveLength(4)
+    expect(snapshot.products).toHaveLength(24)
+    expect(snapshot.products.map((item) => item.name)).toEqual(expect.arrayContaining(['Caldo de abóbora', 'Limonada']))
+    expect(snapshot.sales).toHaveLength(36)
     expect(snapshot.settings?.storeName).toBe('Barraca da Praça')
   })
 
@@ -128,4 +129,55 @@ describe('demonstração local de portfólio', () => {
     expect(source).not.toMatch(/@\/lib\/firebase|https?:\/\/|\/(?:api|firestore)\//i)
     expect(source).not.toMatch(/\bfetch\s*\(|XMLHttpRequest|WebSocket/)
   })
+
+  it('acrescenta os novos exemplos sem substituir edições, exclusões ou feiras removidas', async () => {
+    await demoDatabase.open()
+    const timestamp = '2026-01-01T12:00:00.000Z'
+    await demoDatabase.fairs.add({ id: 'demo-feira-praca', name: 'Nome alterado pelo visitante', ownerId: 'demo-owner', members: {}, active: true, createdAt: timestamp, updatedAt: timestamp })
+    await demoDatabase.products.add({ id: 'demo-prod-caldo', fairId: 'demo-feira-praca', name: 'Produto editado', price: 99, category: 'Comidas', active: true, sortOrder: 1, createdAt: timestamp, updatedAt: timestamp })
+    await demoDatabase.settings.add({ id: 'demo-feira-praca', fairId: 'demo-feira-praca', storeName: 'Caixa personalizado', currency: 'BRL' })
+    await demoDatabase.meta.put({ id: 'seeded', version: 1 })
+    await initializeDemoDatabase()
+    expect(await demoDatabase.fairs.get('demo-feira-praca')).toMatchObject({ name: 'Nome alterado pelo visitante' })
+    expect(await demoDatabase.settings.get('demo-feira-praca')).toMatchObject({ storeName: 'Caixa personalizado' })
+    expect(await demoDatabase.products.get(['demo-feira-praca', 'demo-prod-caldo'])).toMatchObject({ name: 'Produto editado', price: 99 })
+    expect(await demoDatabase.products.get(['demo-feira-praca', 'demo-prod-limonada'])).toBeUndefined()
+    expect(await demoDatabase.fairs.get('demo-feira-jardim')).toBeUndefined()
+    expect(await demoDatabase.products.where('fairId').equals('demo-feira-jardim').count()).toBe(0)
+    const added = (await demoDatabase.products.where('fairId').equals('demo-feira-praca').toArray()).find(p => p.id !== 'demo-prod-caldo')!
+    await demoDatabase.products.delete([added.fairId, added.id])
+    const counts = [await demoDatabase.fairs.count(), await demoDatabase.products.count(), await demoDatabase.sales.count()]
+    await initializeDemoDatabase()
+    await initializeDemoDatabase()
+    expect([await demoDatabase.fairs.count(), await demoDatabase.products.count(), await demoDatabase.sales.count()]).toEqual(counts)
+    expect(await demoDatabase.products.get([added.fairId, added.id])).toBeUndefined()
+    expect(demoDatabase.verno).toBe(1)
+  })
+
+  it('mantém totais coerentes, referências válidas e exemplos em todos os estados', async () => {
+    await initializeDemoDatabase()
+    const fairs = await demoDatabase.fairs.toArray()
+    const products = await demoDatabase.products.toArray()
+    const sales = await demoDatabase.sales.toArray()
+    expect(fairs).toHaveLength(4)
+    expect(products).toHaveLength(60)
+    expect(sales).toHaveLength(96)
+    for (const fair of fairs) {
+      expect(products.filter(p => p.fairId === fair.id).length).toBeGreaterThanOrEqual(8)
+      expect(sales.some(s => s.fairId === fair.id)).toBe(true)
+      expect(await demoDatabase.settings.get(fair.id)).toBeDefined()
+    }
+    for (const sale of sales) {
+      expect(sale.total).toBe(sale.items.reduce((sum, item) => sum + item.unitPrice * item.quantity, 0))
+      expect(sale.subtotal).toBe(sale.total)
+      for (const item of sale.items) expect(products.some(p => p.id === item.productId && p.fairId === sale.fairId)).toBe(true)
+    }
+    expect(new Set(sales.map(s => s.paymentMethod))).toEqual(new Set(['pix', 'cash', 'card']))
+    expect(new Set(sales.filter(s => s.commandNumber).map(s => s.commandStatus))).toEqual(new Set(['pendente', 'preparando', 'pronto', 'chamado', 'entregue']))
+    expect(sales.some(s => s.status === 'cancelado')).toBe(true)
+    const counts = [products.length, sales.length]
+    await initializeDemoDatabase()
+    expect([await demoDatabase.products.count(), await demoDatabase.sales.count()]).toEqual(counts)
+  })
+
 })

@@ -36,12 +36,24 @@ Venda responde qual pedido registrar: busca, categoria, produtos e recibo com pa
 
 ## Contrato técnico
 
-Manter Vue 3, TypeScript e Dexie, todas as funções e dados fictícios existentes. Não mudar festa-camarao-portfolio-demo, chaves locais, IDs, schemas, versão ou seed. Nenhuma restauração automática. Não importar estilos ou runtime do app normal, Firebase, APIs, fontes externas, service worker ou dados reais. Não abrir .env*. A Vercel continua com build:demo e dist-demo. O build normal é independente.
+Manter Vue 3, TypeScript e Dexie, todas as funções e dados fictícios existentes. Não mudar festa-camarao-portfolio-demo, chaves locais, IDs legados, schemas ou versão. Os três produtos e as duas vendas originais continuam com os mesmos IDs. Novos exemplos usam IDs próprios e um marcador na tabela meta existente. Nenhuma restauração automática. Não importar estilos ou runtime do app normal, Firebase, APIs, fontes externas, service worker ou dados reais. Não abrir .env*. A Vercel continua com build:demo e dist-demo. O build normal é independente.
 
-## Validação desta adaptação
+## Conteúdo ampliado e seletores personalizados
 
-15 testes locais aprovados; tipos e build da demo aprovados. Navegador Chromium isolado em 390, 768 e 1440 px: 212 verificações dos fluxos, marca, fonte local, armazenamento e rede. Incluem login inválido, login e saída, busca e categoria, quantidade e total, comanda, chamada e retirada, cancelamento com confirmação, produto criado/editado/excluído, configuração, criação/renomeação/exclusão de feira, isolamento entre feiras e persistência após recarregar. Restauração foi apenas recusada; não houve reset automático nem acesso aos dados do navegador pessoal.
+A base completa para um navegador novo tem quatro feiras, 60 produtos e 96 vendas/comandas. Feira da Praça: 24 produtos e 36 registros; Festival do Jardim: 16 e 24; Sabores da Vila: 12 e 24; Feira Criativa do Coreto: 8 e 12. Preços, pagamentos, cancelamentos, observações e estados de comanda são fictícios. Quantidades e totais são calculados a partir dos itens.
 
-As 18 telas principais foram capturadas e revistas. Sem rolagem horizontal, exceções JavaScript ou tentativas externas. A inspeção com as bibliotecas probe/rules da design-taste-frontend teve zero FAIL nas telas operacionais. Avisos: alturas distintas entre catálogo e pedido/editor e espaço livre após listas curtas. Mantidos: são painéis com tarefas e quantidades diferentes, sem esticar listas ou inventar conteúdo. O scanner avoid-ai-design mantém K7 no App.vue por não resolver o CSS externo; foco por teclado confirmado nas três larguras. Lint sem FAIL/WARN.
+sampleData.ts contém 57 produtos, 94 registros e duas feiras adicionais. Na primeira abertura da versão, a transação acrescenta apenas registros novos em feiras que existem. O marcador examples-october-2026 evita repetir a inclusão. Feiras antigas removidas não são recriadas; configurações e produtos editados são preservados. Uma exclusão posterior do visitante permanece excluída após recarregar. Nenhuma chave de armazenamento ou schema foi alterado. Restaurar dados continua sendo uma ação manual com confirmação.
 
-Evidências e scripts descartáveis em node_modules/.cache/balcao-vinculoo, ignorados pelo Git. Nada dessas evidências entra no artefato publicado. Não houve commit, push ou deploy.
+A venda mostra valor confirmado, pedidos confirmados, itens vendidos e comandas a retirar. O histórico detalha valores confirmados por pagamento e quantidade de cancelamentos. Esses números refletem os registros atuais da feira ativa.
+
+DemoSelect é o controle compartilhado para todos os dropdowns deste layout: Feira ativa, em todas as páginas, e Categoria do produto. Não restam selects nativos na demo. O controle usa combobox/listbox, marca a opção selecionada e oferece setas, Home/End, busca pelo início do texto, Enter/Espaço, Escape, Tab, clique fora e estado desabilitado. Foco permanece no gatilho durante a navegação. O menu é uma camada branca com seleção petróleo, contorno e sombra de sobreposição; a sombra é reservada a esse menu flutuante. Posicionamento acompanha os limites do viewport e pode abrir acima; o menu fecha quando o conteúdo externo é rolado ou a janela é redimensionada.
+
+O app normal dentro da cópia e o projeto original continuam fora deste escopo.
+
+## Validação da ampliação
+
+21 testes aprovados, incluindo preservação de dados, idempotência, integridade de totais e comportamento do componente. Tipos e build da demo aprovados. 157 verificações em Chromium isolado em 390, 768 e 1440 px, com mouse, teclado e toque sintetizado no viewport móvel. Incluem menus abertos, opções, busca, troca entre as quatro feiras, cadastro com categoria, venda, chamada e retirada, cancelamento, exclusão, recarga e persistência. Sem rolagem horizontal, exceções JavaScript ou tentativas externas. Não substitui uma verificação em aparelho físico ou Safari.
+
+Evidências descartáveis em node_modules/.cache/balcao-expanded, ignoradas pelo Git e excluídas do envio à Vercel. Os avisos K7 dos scanners decorrem de CSS externo; foco de teclado foi exercitado no navegador. A sombra sinalizada pelo lint pertence ao listbox flutuante.
+
+Publicação prevista no projeto Vercel balcao-ohc, mantendo build:demo, dist-demo e o repositório viniohc/balcao. Arquivos de ambiente continuam excluídos tanto do Git quanto do envio à Vercel.

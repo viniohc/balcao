@@ -11,6 +11,7 @@ import {
 import { initializeDemoDatabase, resetDemoDatabase } from '@/demo/database'
 
 import DemoIcon from '@/demo/DemoIcon.vue'
+import DemoSelect from '@/demo/DemoSelect.vue'
 
 type Page = 'sale' | 'commands' | 'history' | 'products' | 'settings'
 const page = ref<Page>('sale')
@@ -40,13 +41,16 @@ const asCommand = ref(false)
 const observation = ref('')
 
 const fair = computed(() => fairs.value.find((item) => item.id === selectedFairId.value))
-const availableProducts = computed(() => products.value.filter((item) => item.active && !item.deleted))
+const productOrder = (a: Product, b: Product) => a.sortOrder - b.sortOrder || a.name.localeCompare(b.name, 'pt-BR')
+const fairOptions = computed(() => fairs.value.map(item => ({ value: item.id, label: item.name })))
+const categoryOptions = demoCategories.map(category => ({ value: category, label: category }))
+const availableProducts = computed(() => products.value.filter((item) => item.active && !item.deleted).sort(productOrder))
 const filteredProducts = computed(() => availableProducts.value.filter((product) =>
   (categoryFilter.value === 'Todas' || product.category === categoryFilter.value) &&
   product.name.toLocaleLowerCase('pt-BR').includes(search.value.toLocaleLowerCase('pt-BR')),
 ))
 const categories = computed(() => ['Todas', ...new Set(availableProducts.value.map((product) => product.category))])
-const managedProducts = computed(() => products.value.filter((product) => !product.deleted))
+const managedProducts = computed(() => products.value.filter((product) => !product.deleted).sort(productOrder))
 const itemCount = computed(() => cart.value.reduce((sum, item) => sum + item.quantity, 0))
 const quantityFor = (id: string) => cart.value.find((item) => item.productId === id)?.quantity ?? 0
 const commands = computed(() => sales.value.filter((sale) => sale.commandNumber && sale.status === 'confirmado'))
@@ -55,6 +59,10 @@ const filteredCommands = computed(() => commands.value.filter((sale) =>
   commandFilter.value === 'all' || (commandFilter.value === 'done' ? sale.commandStatus === 'entregue' : sale.commandStatus !== 'entregue'),
 ))
 const confirmedTotal = computed(() => sales.value.filter((sale) => sale.status === 'confirmado').reduce((sum, sale) => sum + sale.total, 0))
+const confirmedSales = computed(() => sales.value.filter(sale => sale.status === 'confirmado'))
+const cancelledSales = computed(() => sales.value.filter(sale => sale.status === 'cancelado'))
+const soldItems = computed(() => confirmedSales.value.reduce((sum, sale) => sum + sale.items.reduce((count, item) => count + item.quantity, 0), 0))
+const payments = computed(() => (['pix', 'cash', 'card'] as const).map(method => ({ method, total: confirmedSales.value.filter(sale => sale.paymentMethod === method).reduce((sum, sale) => sum + sale.total, 0) })))
 const history = computed(() => sales.value.slice().sort((a, b) => b.createdAt.localeCompare(a.createdAt)))
 const total = computed(() => cart.value.reduce((sum, item) => sum + item.unitPrice * item.quantity, 0))
 const paymentLabel = (method: PaymentMethod) => ({ pix: 'Pix', cash: 'Dinheiro', card: 'Cartão' }[method])
@@ -316,9 +324,15 @@ const pageIcons = { sale: 'receipt', commands: 'bell', history: 'history', produ
       </header>
       <div class="workspace">
         <main id="demo-content" class="work-surface" tabindex="-1">
-          <header class="page-heading"><div><h1>{{ pageTitle }}</h1><p>{{ storeName || fair?.name || 'Crie uma feira fictícia para começar.' }}</p></div><label class="fair-switch"><span>Feira ativa</span><select aria-label="Feira ativa" :value="selectedFairId" :disabled="!fairs.length" @change="chooseFair(($event.target as HTMLSelectElement).value)"><option v-if="!fairs.length" value="">Crie uma feira para começar</option><option v-for="item in fairs" :key="item.id" :value="item.id">{{ item.name }}</option></select></label></header>
+          <header class="page-heading"><div><h1>{{ pageTitle }}</h1><p>{{ storeName || fair?.name || 'Crie uma feira fictícia para começar.' }}</p></div><div class="fair-switch"><span>Feira ativa</span><DemoSelect :model-value="selectedFairId" :options="fairOptions" label="Feira ativa" :disabled="!fairs.length" placeholder="Crie uma feira para começar" @update:model-value="chooseFair" /></div></header>
           <p v-if="error" role="alert" class="feedback error"><DemoIcon name="info" />{{ error }}</p>
           <p v-if="notice" role="status" class="feedback success"><DemoIcon name="check" />{{ notice }}</p>
+          <dl v-if="fairs.length && page === 'sale'" class="fair-overview" aria-label="Movimento da feira ativa">
+            <div><dt>Vendas confirmadas</dt><dd>{{ money(confirmedTotal) }}</dd></div>
+            <div><dt>Pedidos confirmados</dt><dd>{{ confirmedSales.length }}</dd></div>
+            <div><dt>Itens vendidos</dt><dd>{{ soldItems }}</dd></div>
+            <div><dt>Comandas a retirar</dt><dd>{{ openCommandCount }}</dd></div>
+          </dl>
           <div v-if="!fairs.length && page !== 'settings'" class="empty-state"><h2>Sua próxima feira começa aqui</h2><p>Crie uma feira fictícia para cadastrar produtos e testar o caixa.</p><button type="button" class="button primary" @click="navigate('settings')">Criar feira fictícia</button></div>
 
           <section v-else-if="page === 'sale'" class="sale-layout" aria-label="Balcão de vendas">
@@ -352,13 +366,14 @@ const pageIcons = { sale: 'receipt', commands: 'bell', history: 'history', produ
 
           <section v-else-if="page === 'history'" class="operation-panel" aria-labelledby="history-title">
             <div class="section-heading history-heading"><div><h2 id="history-title">Movimento da feira</h2><p>{{ history.length }} {{ history.length === 1 ? 'registro' : 'registros' }} neste navegador</p></div><div class="history-total"><span>Total confirmado</span><strong>{{ money(confirmedTotal) }}</strong></div></div>
+            <dl v-if="history.length" class="payment-breakdown" aria-label="Vendas confirmadas por pagamento"><div v-for="entry in payments" :key="entry.method"><dt>{{ paymentLabel(entry.method) }}</dt><dd>{{ money(entry.total) }}</dd></div><div><dt>Cancelamentos</dt><dd>{{ cancelledSales.length }}</dd></div></dl>
             <table v-if="history.length" class="history-table"><caption class="sr-only">Vendas e comandas fictícias da feira ativa</caption><thead><tr><th scope="col">Pedido</th><th scope="col">Data e hora</th><th scope="col">Pagamento</th><th scope="col">Situação</th><th scope="col" class="numeric">Total</th><th scope="col"><span class="sr-only">Ação</span></th></tr></thead><tbody><tr v-for="sale in history" :key="sale.id"><td class="sale-identity"><strong>{{ sale.commandNumber ? 'Comanda ' + sale.commandNumber : 'Venda no balcão' }}</strong><span>{{ sale.items.map((item) => item.quantity + '× ' + item.productName).join(', ') }}</span></td><td data-label="Data e hora">{{ date(sale.createdAt) }}</td><td data-label="Pagamento">{{ paymentLabel(sale.paymentMethod) }}</td><td data-label="Situação"><span class="status-tag" :class="{ cancelled: sale.status === 'cancelado' }">{{ sale.status === 'cancelado' ? 'Cancelada' : 'Confirmada' }}</span></td><td data-label="Total" class="numeric sale-total">{{ money(sale.total) }}</td><td class="row-action"><button v-if="sale.status === 'confirmado'" type="button" class="text-action danger" @click="cancel(sale)">Cancelar venda</button></td></tr></tbody></table>
             <div v-else class="empty-state"><h3>O caixa ainda não tem movimento</h3><p>As vendas e comandas registradas nesta feira aparecerão aqui.</p><button type="button" class="button secondary" @click="navigate('sale')">Registrar primeira venda</button></div>
           </section>
 
           <section v-else-if="page === 'products'" class="products-layout" aria-label="Cadastro de produtos">
             <section class="operation-panel" aria-labelledby="products-title"><div class="section-heading"><h2 id="products-title">Catálogo da feira</h2><span>{{ managedProducts.length }} {{ managedProducts.length === 1 ? 'produto' : 'produtos' }}</span></div><div class="product-list-head"><span>Produto</span><span class="numeric">Preço</span><span>Ações</span></div><div class="managed-products"><article v-for="product in managedProducts" :key="product.id" class="managed-product"><div class="product-identity"><strong>{{ product.name }}</strong><span>{{ product.category }}{{ product.active ? '' : ' — Inativo' }}</span></div><span class="product-price">{{ money(product.price) }}</span><div class="product-actions"><button type="button" class="text-action" :aria-label="'Editar ' + product.name" @click="editProduct(product)">Editar</button><button type="button" class="text-action danger" :aria-label="'Excluir ' + product.name" @click="removeProduct(product)">Excluir</button></div></article></div><div v-if="!managedProducts.length" class="empty-state"><h3>Seu catálogo começa aqui</h3><p>Cadastre o nome, o preço e a categoria do primeiro produto fictício.</p><a href="#product-name" class="text-action">Cadastrar primeiro produto</a></div></section>
-            <form class="product-editor" @submit.prevent="saveProduct"><h2>{{ editingProductId ? 'Editar produto' : 'Novo produto' }}</h2><p>{{ editingProductId ? 'A alteração vale só para esta demonstração.' : 'Cadastre um item fictício para vender no balcão.' }}</p><label class="field">Nome do produto<input id="product-name" v-model.trim="productName" required placeholder="Ex.: Suco de maracujá"></label><div class="product-form-row"><label class="field">Preço (R$)<input v-model="productPrice" required type="number" min="0" step="0.01" inputmode="decimal" placeholder="0,00"></label><label class="field">Categoria<select v-model="productCategory"><option v-for="category in demoCategories" :key="category">{{ category }}</option></select></label></div><button class="button primary">{{ editingProductId ? 'Salvar alteração' : 'Cadastrar produto' }}</button><button v-if="editingProductId" type="button" class="button quiet" @click="clearProductForm">Cancelar edição</button></form>
+            <form class="product-editor" @submit.prevent="saveProduct"><h2>{{ editingProductId ? 'Editar produto' : 'Novo produto' }}</h2><p>{{ editingProductId ? 'A alteração vale só para esta demonstração.' : 'Cadastre um item fictício para vender no balcão.' }}</p><label class="field">Nome do produto<input id="product-name" v-model.trim="productName" required placeholder="Ex.: Suco de maracujá"></label><div class="product-form-row"><label class="field">Preço (R$)<input v-model="productPrice" required type="number" min="0" step="0.01" inputmode="decimal" placeholder="0,00"></label><div class="field"><span>Categoria</span><DemoSelect :model-value="productCategory" :options="categoryOptions" label="Categoria do produto" @update:model-value="productCategory = $event as ProductCategory" /></div></div><button class="button primary">{{ editingProductId ? 'Salvar alteração' : 'Cadastrar produto' }}</button><button v-if="editingProductId" type="button" class="button quiet" @click="clearProductForm">Cancelar edição</button></form>
           </section>
 
           <section v-else class="settings-layout" aria-label="Configurações da feira">

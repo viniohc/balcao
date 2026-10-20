@@ -1,5 +1,6 @@
 import Dexie, { type Table } from 'dexie'
 import type { Fair, Product, Sale, Settings } from '@/types/models'
+import { additionalFairs, additionalProducts, additionalSales, additionalSettings, DEMO_CONTENT_PACK_ID } from '@/demo/sampleData'
 
 export const DEMO_DATABASE_NAME = 'festa-camarao-portfolio-demo'
 interface DemoMeta { id: string; version: number }
@@ -66,18 +67,36 @@ const seed = async (database: PortfolioDemoDatabase) => {
 const tables = (database: PortfolioDemoDatabase) =>
   [database.fairs, database.products, database.sales, database.settings, database.meta]
 
+// Add each example pack once. Existing rows, edits and deletions are never reset.
+const addExamplePack = async (database: PortfolioDemoDatabase) => {
+  if (await database.meta.get(DEMO_CONTENT_PACK_ID)) return
+  for (const fair of additionalFairs) {
+    if (!(await database.fairs.get(fair.id))) await database.fairs.add(fair)
+  }
+  const fairIds = new Set(await database.fairs.toCollection().primaryKeys())
+  for (const settings of additionalSettings) {
+    if (fairIds.has(settings.fairId) && !(await database.settings.get(settings.id))) await database.settings.add(settings)
+  }
+  const products = additionalProducts.filter(p => fairIds.has(p.fairId))
+  const productRows = await database.products.bulkGet(products.map(p => [p.fairId, p.id]))
+  await database.products.bulkAdd(products.filter((_, index) => !productRows[index]))
+  const sales = additionalSales.filter(s => fairIds.has(s.fairId))
+  const saleRows = await database.sales.bulkGet(sales.map(s => [s.fairId, s.id]))
+  await database.sales.bulkAdd(sales.filter((_, index) => !saleRows[index]))
+  await database.meta.put({ id: DEMO_CONTENT_PACK_ID, version: 1 })
+}
+
 export async function initializeDemoDatabase(database = demoDatabase) {
   await database.open()
   await database.transaction('rw', tables(database), async () => {
-    if (await database.meta.get('seeded')) return
-    const counts = await Promise.all([
-      database.fairs.count(), database.products.count(), database.sales.count(), database.settings.count(),
-    ])
-    if (counts.some((count) => count > 0)) {
-      await database.meta.put({ id: 'seeded', version: 1 })
-      return
+    if (!(await database.meta.get('seeded'))) {
+      const counts = await Promise.all([
+        database.fairs.count(), database.products.count(), database.sales.count(), database.settings.count(),
+      ])
+      if (counts.some(count => count > 0)) await database.meta.put({ id: 'seeded', version: 1 })
+      else await seed(database)
     }
-    await seed(database)
+    await addExamplePack(database)
   })
 }
 
@@ -89,5 +108,6 @@ export async function resetDemoDatabase(database = demoDatabase) {
       database.settings.clear(), database.meta.clear(),
     ])
     await seed(database)
+    await addExamplePack(database)
   })
 }

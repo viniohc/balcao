@@ -65,3 +65,11 @@ A direção visual e as regras de uso da marca estão em [DESIGN.md](DESIGN.md).
 A interface adapta os padrões de catálogo e formulários do protótipo local Elo, documentado no estudo Vínculoo: navegação horizontal, busca com filtros, tipografia Albert Sans, petróleo e amarelo. O layout se ajusta à operação de vendas e retiradas. A implementação mantém Vue e seus dados locais; não inclui conteúdo ou funcionalidades educacionais.
 
 A Albert Sans é servida localmente, sob [SIL Open Font License 1.1](src/demo/assets/albert-sans-OFL.txt). A licença também acompanha a fonte no artefato da demo, em assets/albert-sans-OFL.txt.
+
+## Exemplos e seletores
+
+A demonstração completa inclui **4 feiras, 60 produtos e 96 vendas/comandas** fictícias, com diferentes pagamentos, cancelamentos e etapas de retirada. Os resumos da venda e do histórico são calculados a partir dos registros locais.
+
+Navegadores que já usaram a demo recebem os novos exemplos uma única vez. Alterações e exclusões existentes são preservadas; feiras antigas removidas não são restauradas. O nome do banco, as chaves e o schema permanecem iguais.
+
+Todos os dropdowns da demo usam o componente personalizado DemoSelect, com operação por mouse, toque e teclado. A interface e os dados continuam locais, sem Firebase ou APIs.
