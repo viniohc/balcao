@@ -1,0 +1,272 @@
+rules_version = '2';
+
+service cloud.firestore {
+  match /databases/{database}/documents {
+    function signedIn() {
+      return request.auth != null;
+    }
+
+    function validFairId(fairId) {
+      return fairId is string
+        && fairId.matches('^[A-Za-z0-9_-]{1,128}$');
+    }
+
+    function validRecordId(recordId) {
+      return recordId is string
+        && recordId.matches('^[A-Za-z0-9_-]{1,128}$');
+    }
+
+    function validTime(value) {
+      return value is string
+        && value.size() >= 20
+        && value.size() <= 40;
+    }
+
+    function fairPath(fairId) {
+      return /databases/$(database)/documents/fairs/$(fairId);
+    }
+
+    function isFairMember(fairId) {
+      return signedIn()
+        && validFairId(fairId)
+        && exists(fairPath(fairId))
+        && get(fairPath(fairId)).data.id == fairId
+        && get(fairPath(fairId)).data.members is map
+        && get(fairPath(fairId)).data.members[request.auth.uid] == true;
+    }
+
+    function isFairOwnerDocument(fairId, data) {
+      return signedIn()
+        && validFairId(fairId)
+        && data.id == fairId
+        && data.ownerId == request.auth.uid
+        && data.members is map
+        && data.members[request.auth.uid] == true;
+    }
+
+    function validFairData(fairId, data) {
+      return validFairId(fairId)
+        && data.keys().hasAll([
+          'id', 'name', 'ownerId', 'members', 'active', 'createdAt', 'updatedAt'
+        ])
+        && data.keys().hasOnly([
+          'id', 'name', 'ownerId', 'members', 'active', 'createdAt', 'updatedAt'
+        ])
+        && data.id == fairId
+        && data.name is string
+        && data.name.size() > 0
+        && data.name.size() <= 120
+        && data.ownerId is string
+        && data.ownerId.size() > 0
+        && data.ownerId.size() <= 128
+        && data.members is map
+        && data.members.keys().hasAll([data.ownerId])
+        && data.members[data.ownerId] == true
+        && data.active is bool
+        && validTime(data.createdAt)
+        && validTime(data.updatedAt);
+    }
+
+    function validProduct(fairId, productId, data) {
+      return validFairId(fairId)
+        && validRecordId(productId)
+        && data.keys().hasAll([
+          'id', 'fairId', 'name', 'price', 'category', 'active',
+          'sortOrder', 'createdAt', 'updatedAt'
+        ])
+        && data.keys().hasOnly([
+          'id', 'fairId', 'name', 'price', 'category', 'active',
+          'sortOrder', 'createdAt', 'updatedAt', 'deleted', 'deletedAt'
+        ])
+        && data.id == productId
+        && data.fairId == fairId
+        && data.name is string
+        && data.name.size() > 0
+        && data.name.size() <= 120
+        && data.price is number
+        && data.price >= 0
+        && data.price <= 1000000
+        && data.category in ['Comidas', 'Bebidas', 'Sobremesas', 'Outros']
+        && data.active is bool
+        && data.sortOrder is int
+        && data.sortOrder >= 0
+        && data.sortOrder <= 10000
+        && validTime(data.createdAt)
+        && validTime(data.updatedAt)
+        && (!('deleted' in data) || data.deleted is bool)
+        && (!('deletedAt' in data) || validTime(data.deletedAt))
+        && (!('deleted' in data) || data.deleted != true || ('deletedAt' in data));
+    }
+
+    function validCashFields(data) {
+      return (
+          data.paymentMethod == 'cash'
+          && (
+            (!('amountReceived' in data) && !('change' in data) && data.total == 0)
+            || (
+              'amountReceived' in data
+              && 'change' in data
+              && data.amountReceived is number
+              && data.amountReceived >= data.total
+              && data.change is number
+              && data.change >= 0
+              && data.change == data.amountReceived - data.total
+            )
+          )
+        )
+        || (
+          data.paymentMethod in ['pix', 'card']
+          && !('amountReceived' in data)
+          && !('change' in data)
+        );
+    }
+
+    function validSale(fairId, saleId, data) {
+      return validFairId(fairId)
+        && validRecordId(saleId)
+        && data.keys().hasAll([
+          'id', 'fairId', 'createdAt', 'dateKey', 'items',
+          'subtotal', 'total', 'paymentMethod', 'status'
+        ])
+        && data.keys().hasOnly([
+          'id', 'fairId', 'createdAt', 'dateKey', 'items', 'subtotal', 'total',
+          'paymentMethod', 'amountReceived', 'change', 'status', 'observation',
+          'cancelledAt', 'commandNumber', 'commandStatus', 'commandUpdatedAt',
+          'commandReturnedAt'
+        ])
+        && data.id == saleId
+        && data.fairId == fairId
+        && validTime(data.createdAt)
+        && data.dateKey is string
+        && data.dateKey.matches('^[0-9]{4}-[0-9]{2}-[0-9]{2}$')
+        // Rules can bound the list, but cannot generically validate every item map.
+        && data.items is list
+        && data.items.size() > 0
+        && data.items.size() <= 100
+        && data.subtotal is number
+        && data.subtotal >= 0
+        && data.total is number
+        && data.total >= 0
+        && data.total <= 1000000000
+        && data.subtotal == data.total
+        && data.paymentMethod in ['cash', 'pix', 'card']
+        && validCashFields(data)
+        && data.status in ['confirmado', 'cancelado']
+        && (!('observation' in data)
+          || (data.observation is string && data.observation.size() <= 500))
+        && (!('cancelledAt' in data) || validTime(data.cancelledAt))
+        && (!('commandNumber' in data)
+          || (data.commandNumber is string && data.commandNumber.size() > 0 && data.commandNumber.size() <= 64))
+        && (!('commandStatus' in data)
+          || data.commandStatus in ['pendente', 'preparando', 'pronto', 'chamado', 'entregue'])
+        && (!('commandUpdatedAt' in data) || validTime(data.commandUpdatedAt))
+        && (!('commandReturnedAt' in data) || validTime(data.commandReturnedAt));
+    }
+
+    function validSettingsId(settingId) {
+      return settingId == 'default'
+        || settingId.matches('^default-[A-Za-z0-9_-]{1,128}$');
+    }
+
+    function validSettings(fairId, settingId, data) {
+      return validFairId(fairId)
+        && validSettingsId(settingId)
+        && data.keys().hasAll(['id', 'fairId', 'storeName', 'currency'])
+        && data.keys().hasOnly(['id', 'fairId', 'storeName', 'currency'])
+        && data.id == settingId
+        && data.fairId == fairId
+        && data.storeName is string
+        && data.storeName.size() > 0
+        && data.storeName.size() <= 120
+        && data.currency == 'BRL';
+    }
+
+    match /fairs/{fairId} {
+      allow get: if signedIn()
+        && validFairId(fairId)
+        && resource.data.id == fairId
+        && resource.data.members is map
+        && resource.data.members[request.auth.uid] == true;
+      allow list: if signedIn()
+        && resource.data.members is map
+        && resource.data.members[request.auth.uid] == true;
+
+      allow create: if signedIn()
+        && validFairData(fairId, request.resource.data)
+        && request.resource.data.ownerId == request.auth.uid
+        && request.resource.data.members.keys().hasOnly([request.auth.uid])
+        && request.resource.data.members[request.auth.uid] == true;
+
+      allow update: if isFairOwnerDocument(fairId, resource.data)
+        && validFairData(fairId, request.resource.data)
+        && resource.data.id == fairId
+        && request.resource.data.ownerId == resource.data.ownerId
+        && request.resource.data.createdAt == resource.data.createdAt;
+
+      allow delete: if isFairOwnerDocument(fairId, resource.data)
+        && resource.data.id == fairId;
+
+      match /products/{productId} {
+        allow get: if isFairMember(fairId)
+          && validRecordId(productId)
+          && (resource == null
+            || (resource.data.id == productId && resource.data.fairId == fairId));
+        allow list: if isFairMember(fairId)
+          && resource.data.fairId == fairId;
+
+        allow create: if isFairMember(fairId)
+          && validProduct(fairId, productId, request.resource.data);
+        allow update: if isFairMember(fairId)
+          && resource.data.id == productId
+          && resource.data.fairId == fairId
+          && validProduct(fairId, productId, request.resource.data)
+          && request.resource.data.id == resource.data.id
+          && request.resource.data.fairId == resource.data.fairId
+          && request.resource.data.createdAt == resource.data.createdAt;
+        allow delete: if false;
+      }
+
+      match /sales/{saleId} {
+        allow get: if isFairMember(fairId)
+          && validRecordId(saleId)
+          && (resource == null
+            || (resource.data.id == saleId && resource.data.fairId == fairId));
+        allow list: if isFairMember(fairId)
+          && resource.data.fairId == fairId;
+
+        allow create: if isFairMember(fairId)
+          && validSale(fairId, saleId, request.resource.data)
+          && request.resource.data.status == 'confirmado';
+        allow update: if isFairMember(fairId)
+          && resource.data.id == saleId
+          && resource.data.fairId == fairId
+          && validSale(fairId, saleId, request.resource.data)
+          && request.resource.data.id == resource.data.id
+          && request.resource.data.fairId == resource.data.fairId
+          && request.resource.data.createdAt == resource.data.createdAt
+          && (
+            request.resource.data.status == resource.data.status
+            || (resource.data.status == 'confirmado'
+              && request.resource.data.status == 'cancelado')
+          );
+        allow delete: if false;
+      }
+
+      match /settings/{settingId} {
+        allow get: if isFairMember(fairId)
+          && validSettingsId(settingId)
+          && (resource == null
+            || (resource.data.id == settingId && resource.data.fairId == fairId));
+        allow list: if false;
+
+        allow create: if isFairMember(fairId)
+          && validSettings(fairId, settingId, request.resource.data);
+        allow update: if isFairMember(fairId)
+          && validSettings(fairId, settingId, request.resource.data)
+          && resource.data.id == settingId
+          && resource.data.fairId == fairId;
+        allow delete: if false;
+      }
+    }
+  }
+}

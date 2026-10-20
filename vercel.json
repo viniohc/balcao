@@ -1,0 +1,18 @@
+{
+  "buildCommand": "npm run build:demo",
+  "outputDirectory": "dist-demo",
+  "rewrites": [
+    {
+      "source": "/",
+      "destination": "/demo.html"
+    },
+    {
+      "source": "/login",
+      "destination": "/demo.html"
+    },
+    {
+      "source": "/login/",
+      "destination": "/demo.html"
+    }
+  ]
+}
