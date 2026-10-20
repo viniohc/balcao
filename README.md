@@ -1,75 +1,96 @@
+[English](README.md) · [Português brasileiro](README.pt-BR.md)
+
 # Balcão
 
-Vendas e comandas para feiras e eventos.
+Point of sale and order pickup for local fairs.
 
-## Apresentação para o portfólio
+Balcão is a web application for stall operators at fairs and events. It brings product selection, sales records and order pickup into one interface, so the cashier can handle immediate purchases and orders that need preparation.
 
-| Idioma | Nome | Descrição |
-| --- | --- | --- |
-| Português | Balcão | Vendas e comandas para feiras e eventos. |
-| English | Balcão | Point of sale and order pickup for local fairs. |
+The public demo lets you try these workflows with fictional data stored in your browser. Its interface is in Brazilian Portuguese; **Balcão** is the project name in both languages.
 
-Balcão é um nome próprio e permanece igual nos dois idiomas. A interface da demonstração está em português.
+## Try the demo
 
-## Demonstração local
+**[Open Balcão](https://balcao-ohc.vercel.app/)**
 
-A demo permite experimentar vendas no balcão, comandas, chamada e retirada de pedidos, histórico com cancelamento, cadastro de produtos e configurações de feiras. Todos os dados de exemplo são inventados.
+On the login screen, click **Preencher campos** to fill in the displayed demo credentials, then **Entrar no Balcão**. This is a simulated login: no account is created, and you should not enter real credentials.
 
-O acesso é simulado: as credenciais fictícias aparecem na tela de login e podem ser preenchidas pelo botão **Preencher campos**. Elas não protegem contas reais. Nenhum pagamento é processado.
+## Sales with and without a pickup order
 
-As operações da demo usam somente o navegador, sem Firebase, backend ou APIs externas. O botão **Restaurar dados** pede confirmação e repõe os exemplos somente no armazenamento exclusivo da demo daquele navegador.
+Both flows start by selecting a fair, searching or filtering its products, adding items to the order, adjusting quantities and choosing a payment method.
 
-## Desenvolvimento e validação
+| Flow | How it works in the demo |
+| --- | --- |
+| Direct sale | Leave **Registrar como comanda** unchecked and click **Concluir venda**. The sale is saved in the history without entering the pickup queue. |
+| Numbered pickup order | Enable **Registrar como comanda**, optionally add a note, then click **Registrar comanda**. The order receives a number and appears in **Comandas**, where you can view its items and status, call it for pickup and mark it as collected. |
 
-Com as dependências do lockfile instaladas, inicie exclusivamente a demo:
+Here, *comanda* means a numbered order used to track pickup. Pix, cash and card are recorded as payment methods; the demo does not process payments.
+
+## Features
+
+- **Sales:** product search, category filters, quantity controls and calculated order totals.
+- **Pickup queue:** order numbers, notes and status, with filters for outstanding, completed or all orders; actions to call an order and confirm collection.
+- **History:** items, date and time, payment method, amount and sale status; cancellation with confirmation and totals by payment method.
+- **Products:** create, edit and delete products with a name, price and category.
+- **Fairs:** switch between separate catalogues and sales records; create, rename or delete a fair and set its stall name.
+- **Activity summary:** confirmed sales value, confirmed orders, items sold and orders awaiting pickup, calculated from the active fair's records.
+- **Interface:** responsive layouts, labelled form fields and custom dropdowns with mouse, touch and keyboard support.
+
+## Run the demo locally
+
+Use Node.js 24.x and npm, plus Git to clone the repository. This Node version meets the dependency requirements recorded in the lockfile.
 
 ```bash
+git clone https://github.com/viniohc/balcao.git
+cd balcao
+npm ci
 npm run dev:demo
 ```
 
-Para executar a suíte local e gerar o artefato da demo:
+Open the local URL printed by Vite. No Firebase setup or environment file is required for the demo; its Vite configuration disables environment-file loading.
 
-```bash
-npm run test
-npm run build:demo
-```
+Other demo-related commands from [package.json](package.json):
 
-O build inclui a verificação de tipos. A configuração específica da demo não carrega arquivos de ambiente locais nem copia a pasta pública do app normal. Não é necessário configurar Firebase para desenvolver ou compilar a demonstração.
+| Command | Purpose |
+| --- | --- |
+| `npm run test` | Run the local Vitest suite. Firestore emulator tests are excluded from this suite. |
+| `npm run build:demo` | Type-check the project and build the demo into `dist-demo`. |
 
-## Publicação da demonstração
+The scripts named `dev`, `build` and `preview` use the separate application configuration described below.
 
-A entrada é `demo.html`, que carrega `src/demo/main.ts`. A interface usa Vue 3 e TypeScript; os dados locais usam Dexie/IndexedDB.
+## Demo data and storage
 
-A configuração `vercel.json` executa `npm run build:demo` e serve exclusivamente `dist-demo`. As rotas `/` e `/login` apontam para o HTML da demo. Essa saída contém apenas a entrada e os assets da demonstração; não inclui o app normal, suas configurações Firebase ou seu service worker.
+A fresh demo database contains **4 fairs, 60 products and 96 sales/order records**. These are fictional examples, including different payment methods, cancellations and pickup statuses. They are not usage statistics.
 
-A pasta `dist-demo` é gerada e ignorada pelo Git. Este documento descreve a preparação local; não confirma um deploy publicado.
+- **IndexedDB**, accessed through Dexie, stores fairs, products, sales and settings in the database named `festa-camarao-portfolio-demo`.
+- **localStorage** stores the simulated session and selected fair. Signing out does not delete saved records.
+- Saved changes survive a reload. The unfinished cart is held in memory and is not saved across reloads.
+- The additional example pack is inserted once. Existing edits are preserved, and subsequent reloads do not recreate deleted examples or duplicate the pack.
+- **Restaurar dados** asks for confirmation, then replaces all demo records for that browser origin with the examples.
 
-## Compatibilidade dos dados locais
+Storage belongs to a browser profile and origin. Localhost, another domain or another device has separate data. Clearing site data removes the saved demo records; there is no server backup or synchronization in the demo.
 
-A marca visível é Balcão. Os identificadores técnicos permanecem iguais para que a mudança de nome não afete os dados já salvos:
+The examples and initialization logic are in [sampleData.ts](src/demo/sampleData.ts) and [database.ts](src/demo/database.ts).
 
-- IndexedDB: `festa-camarao-portfolio-demo`.
-- Sessão local: `festa-camarao-portfolio-demo:session`.
-- Feira selecionada: `festa-camarao-portfolio-demo:selectedFairId`.
+## Technologies and repository scope
 
-O nome do banco, as chaves locais, os IDs dos exemplos e os schemas não devem ser renomeados como parte de uma alteração de marca. A demo não lê, migra ou limpa o armazenamento de outros modos do sistema.
+The demo uses **Vue 3**, **TypeScript**, **Vite 8**, CSS and **Dexie/IndexedDB**. The build configuration also loads the Tailwind CSS 4 Vite plugin. Tests use **Vitest**, **jsdom** and **fake-indexeddb**.
 
-## Código do app normal
+This repository contains two application entry points:
 
-O repositório também mantém o código do app normal e seus comandos `dev`, `build` e `preview`. Esse modo tem configuração e integração Firebase próprias. A publicação da Vercel seleciona a entrada e o build exclusivos da demo.
+| Area | Published demo | Separate application code |
+| --- | --- | --- |
+| Entry | `demo.html` → `src/demo/main.ts` | `index.html` → `src/main.ts` |
+| Main code | `src/demo/` | `src/views/`, `src/stores/`, `src/services/` and `src/router/` |
+| Data and access | Local demo repository and simulated login | Firebase Authentication, Firestore integration and separate local storage |
+| Additional infrastructure | No Firebase runtime, backend API or service worker | Vue Router, Pinia and PWA configuration |
+| Build | `npm run build:demo` → `dist-demo` | `npm run build` → `dist` |
 
-A direção visual e as regras de uso da marca estão em [DESIGN.md](DESIGN.md).
+The public demo does not expose every feature in the separate application. Its flows and data stay within `src/demo`; types are shared from `src/types/models.ts`. The separate application has its own Firebase configuration requirements and is not covered by the demo setup instructions above.
 
-## Referência visual da demonstração
+[vercel.json](vercel.json) runs `npm run build:demo` and publishes only `dist-demo`. Its root and login routes serve the demo entry. [vite.demo.config.ts](vite.demo.config.ts) does not copy the separate application's public directory or load its environment files. The other build remains configured in [vite.config.ts](vite.config.ts).
 
-A interface adapta os padrões de catálogo e formulários do protótipo local Elo, documentado no estudo Vínculoo: navegação horizontal, busca com filtros, tipografia Albert Sans, petróleo e amarelo. O layout se ajusta à operação de vendas e retiradas. A implementação mantém Vue e seus dados locais; não inclui conteúdo ou funcionalidades educacionais.
+For visual conventions and implementation notes, see [DESIGN.md](DESIGN.md).
 
-A Albert Sans é servida localmente, sob [SIL Open Font License 1.1](src/demo/assets/albert-sans-OFL.txt). A licença também acompanha a fonte no artefato da demo, em assets/albert-sans-OFL.txt.
+## Font
 
-## Exemplos e seletores
-
-A demonstração completa inclui **4 feiras, 60 produtos e 96 vendas/comandas** fictícias, com diferentes pagamentos, cancelamentos e etapas de retirada. Os resumos da venda e do histórico são calculados a partir dos registros locais.
-
-Navegadores que já usaram a demo recebem os novos exemplos uma única vez. Alterações e exclusões existentes são preservadas; feiras antigas removidas não são restauradas. O nome do banco, as chaves e o schema permanecem iguais.
-
-Todos os dropdowns da demo usam o componente personalizado DemoSelect, com operação por mouse, toque e teclado. A interface e os dados continuam locais, sem Firebase ou APIs.
+Albert Sans is bundled locally. Its [SIL Open Font License 1.1](src/demo/assets/albert-sans-OFL.txt) is included in the repository and emitted with the demo build.
