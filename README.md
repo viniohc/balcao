@@ -2,6 +2,8 @@
 
 # Balcão
 
+[![CI](https://github.com/viniohc/balcao/actions/workflows/ci.yml/badge.svg)](https://github.com/viniohc/balcao/actions/workflows/ci.yml)
+
 Point of sale and order pickup for local fairs.
 
 Balcão is a web application for stall operators at fairs and events. It brings product selection, sales records and order pickup into one interface, so the cashier can handle immediate purchases and orders that need preparation.
