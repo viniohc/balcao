@@ -2,6 +2,8 @@
 
 # Balcão
 
+[![CI](https://github.com/viniohc/balcao/actions/workflows/ci.yml/badge.svg)](https://github.com/viniohc/balcao/actions/workflows/ci.yml)
+
 Vendas e comandas para feiras e eventos.
 
 Balcão é uma aplicação web para quem opera barracas em feiras e eventos. Reúne seleção de produtos, registro de vendas e retirada de pedidos em uma interface, permitindo atender tanto compras com entrega imediata quanto pedidos que precisam de preparo.
